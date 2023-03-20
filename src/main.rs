@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display, fs};
+use std::{error::Error, fmt::Display, fs, env::args, process::exit};
 
 #[derive(Debug, Clone, PartialEq)]
 enum Expr {
@@ -231,14 +231,22 @@ impl Display for Sheet {
     }
 }
 
+fn usage(program_name: &str) {
+    eprintln!("usage: {program_name} input.csv > output.csv");
+}
 fn main() -> Result<(), Box<dyn Error>> {
-    let file_path = "input.csv";
-    let content = fs::read_to_string(file_path)?;
-    let mut sheet = Sheet::from_str(&content);
+    if let Some(file_name) = args().nth(1) {
+        let content = fs::read_to_string(&file_name)?;
+        let mut sheet = Sheet::from_str(&content);
 
-    sheet.eval_all()?;
+        sheet.eval_all()?;
 
-    println!("{sheet}");
+        println!("{sheet}");
+
+    } else {
+        usage(&args().nth(0).unwrap());
+        exit(1);
+    }
 
     // let input = "A1 + 69+B2 ";
 
