@@ -75,7 +75,7 @@ impl<'a> Parser<'a> {
         if s.is_empty() {
             return None;
         }
-        if matches!(&s[..1], "+" | "-" | "*" | "/") {
+        if matches!(&s[..1], "+" | "-" | "*" | "/" | "(" | ")") {
             return Some(&s[..1]);
         }
         let n = s.chars().take_while(char::is_ascii_alphanumeric).count();
@@ -96,6 +96,18 @@ impl<'a> Parser<'a> {
 
     fn parse_primary_expr(&mut self) -> Expr {
         if let Some(token) = self.next_token() {
+            if token == "(" {
+                let expr = self.parse_expr();
+                match self.next_token() {
+                    Some(token) if token != ")" => {
+                        panic!("Expectef `)` but got `{token}`");
+                    }
+                    None => panic!("Expected `)` but got end of input"),
+                    _ => (),
+                }
+                return expr;
+            }
+
             if let Ok(n) = token.parse() {
                 return Expr::Number(n);
             }
@@ -438,6 +450,27 @@ mod test {
                 lhs: Box::new(Number(2.0)),
                 rhs: Box::new(Number(3.0)),
             }),
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn parse_with_parentheses() {
+        use Expr::*;
+        use BinOpKind::*;
+        let source = "(1 - 2) * 3";
+
+        let actual = Parser(&source).parse_expr();
+
+        let expected = BinOp {
+            kind: Mul,
+            lhs: Box::new(BinOp {
+                kind: Sub,
+                lhs: Box::new(Number(1.0)),
+                rhs: Box::new(Number(2.0)),
+            }),
+            rhs: Box::new(Number(3.0)),
         };
 
         assert_eq!(actual, expected);
