@@ -1,10 +1,22 @@
-use std::{error::Error, fmt::Display, fs, env::args, process::exit};
+use std::{env::args, error::Error, fmt::Display, fs, process::exit};
+
+#[derive(Debug, Clone, PartialEq)]
+enum BinOpKind {
+    Plus,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 enum Expr {
     Number(f64),
-    Address { row: usize, col: usize },
-    Plus { lhs: Box<Expr>, rhs: Box<Expr> },
+    Address {
+        row: usize,
+        col: usize,
+    },
+    BinOp {
+        kind: BinOpKind,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
 }
 
 impl Display for Expr {
@@ -17,7 +29,9 @@ impl Display for Expr {
                 col = (*col as u8 + 'A' as u8) as char,
                 row = row + 1
             )?,
-            Expr::Plus { lhs, rhs } => write!(f, "{lhs} + {rhs}")?,
+            Expr::BinOp { kind, lhs, rhs } => match kind {
+                BinOpKind::Plus => write!(f, "{lhs} + {rhs}")?,
+            },
         }
         Ok(())
     }
@@ -76,7 +90,8 @@ impl<'a> Parser<'a> {
 
         if let Some("+") = self.next_token() {
             let rhs = self.parse_plus();
-            return Expr::Plus {
+            return Expr::BinOp {
+                kind: BinOpKind::Plus,
                 lhs: Box::new(lhs),
                 rhs: Box::new(rhs),
             };
@@ -207,7 +222,11 @@ impl Sheet {
         match expr {
             Expr::Number(n) => Ok(*n),
             Expr::Address { row, col } => self.eval_cell(*row, *col),
-            Expr::Plus { lhs, rhs } => Ok(self.eval_expr(lhs)? + self.eval_expr(rhs)?),
+            Expr::BinOp {
+                kind: BinOpKind::Plus,
+                lhs,
+                rhs,
+            } => Ok(self.eval_expr(lhs)? + self.eval_expr(rhs)?),
         }
     }
 }
@@ -242,7 +261,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         sheet.eval_all()?;
 
         println!("{sheet}");
-
     } else {
         usage(&args().nth(0).unwrap());
         exit(1);
@@ -312,9 +330,8 @@ mod test {
             3        | 4
             12       | 3";
         let sheet2 = Sheet::from_str(s2);
-        
+
         assert!(sheet1.eval_all().is_ok());
         assert_eq!(sheet1, sheet2);
     }
-
 }
