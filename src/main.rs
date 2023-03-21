@@ -415,8 +415,8 @@ mod test {
 
     #[test]
     fn parse_with_precedence1() {
-        use Expr::*;
         use BinOpKind::*;
+        use Expr::*;
         let source = "2 * 3 + 1";
 
         let actual = Parser(&source).parse_expr();
@@ -436,8 +436,8 @@ mod test {
 
     #[test]
     fn parse_with_precedence2() {
-        use Expr::*;
         use BinOpKind::*;
+        use Expr::*;
         let source = "1 - 2 / 3";
 
         let actual = Parser(&source).parse_expr();
@@ -457,8 +457,8 @@ mod test {
 
     #[test]
     fn parse_with_parentheses() {
-        use Expr::*;
         use BinOpKind::*;
+        use Expr::*;
         let source = "(1 - 2) * 3";
 
         let actual = Parser(&source).parse_expr();
