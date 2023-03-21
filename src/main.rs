@@ -8,6 +8,11 @@ use std::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
+enum UnOpKind {
+    Minus,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum BinOpKind {
     Add,
     Sub,
@@ -50,6 +55,10 @@ enum Expr {
         lhs: Box<Expr>,
         rhs: Box<Expr>,
     },
+    UnOp {
+        kind: UnOpKind,
+        arg: Box<Expr>,
+    },
 }
 
 impl Display for Expr {
@@ -68,6 +77,10 @@ impl Display for Expr {
                 BinOpKind::Mul => write!(f, "{lhs} * {rhs}")?,
                 BinOpKind::Div => write!(f, "{lhs} / {rhs}")?,
             },
+            Expr::UnOp {
+                kind: UnOpKind::Minus,
+                arg,
+            } => write!(f, "-{arg}")?,
         }
         Ok(())
     }
@@ -105,6 +118,13 @@ impl<'a> Parser<'a> {
                     _ => (),
                 }
                 return expr;
+            }
+
+            if token == "-" {
+                return Expr::UnOp {
+                    kind: UnOpKind::Minus,
+                    arg: Box::new(self.parse_primary_expr()),
+                };
             }
 
             if let Ok(n) = token.parse() {
@@ -288,6 +308,10 @@ impl Sheet {
                     BinOpKind::Div => Ok(lhs / rhs),
                 }
             }
+            Expr::UnOp {
+                kind: UnOpKind::Minus,
+                arg,
+            } => Ok(-self.eval_expr(arg)?),
         }
     }
 }
@@ -385,39 +409,19 @@ mod test {
     }
 
     #[test]
-    fn valid_sheet_plus() {
+    fn valid_sheet() {
         let s1 = "\
-            column 1 | column 2
-            1        | 2
-            3        | 4
-            =B2+10   | =A2 + B2";
+            column 1  | column 2
+            1         | 2
+            3         | 4
+            =B2-10*A3 | =-A2 * (B2 + B3)";
         let mut sheet1 = Sheet::from_str(s1);
 
         let s2 = "\
             column 1 | column 2
             1        | 2
             3        | 4
-            12       | 3";
-        let sheet2 = Sheet::from_str(s2);
-
-        assert!(sheet1.eval_all().is_ok());
-        assert_eq!(sheet1, sheet2);
-    }
-
-    #[test]
-    fn valid_sheet_minus() {
-        let s1 = "\
-            column 1 | column 2
-            1        | 2
-            3        | 4
-            =B2-10   | =A2 - B2";
-        let mut sheet1 = Sheet::from_str(s1);
-
-        let s2 = "\
-            column 1 | column 2
-            1        | 2
-            3        | 4
-            -8       | -1";
+            -28      | -6";
         let sheet2 = Sheet::from_str(s2);
 
         assert!(sheet1.eval_all().is_ok());
@@ -483,6 +487,31 @@ mod test {
             }),
             rhs: Box::new(Number(3.0)),
         };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn parse_with_negation() {
+        use BinOpKind::*;
+        use Expr::*;
+        use UnOpKind::*;
+        let source = "-(1 - 2) * 3";
+
+        let expected = BinOp {
+            kind: Mul,
+            lhs: Box::new(UnOp {
+                kind: Minus,
+                arg: Box::new(BinOp {
+                    kind: Sub,
+                    lhs: Box::new(Number(1.0)),
+                    rhs: Box::new(Number(2.0)),
+                }),
+            }),
+            rhs: Box::new(Number(3.0)),
+        };
+
+        let actual = Parser(&source).parse_expr();
 
         assert_eq!(actual, expected);
     }
