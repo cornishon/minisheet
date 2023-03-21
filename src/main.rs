@@ -18,9 +18,18 @@ impl BinOpKind {
             _ => None,
         }
     }
-}
 
-const BIN_OP_SYMBOLS: &[&str] = &["+", "-", "*", "/"];
+    fn precedence(&self) -> u32 {
+        match self {
+            BinOpKind::Add | BinOpKind::Sub => 0,
+            BinOpKind::Mul | BinOpKind::Div => 1,
+        }
+    }
+
+    fn max_precedence() -> u32 {
+        1
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 enum Expr {
@@ -60,22 +69,29 @@ impl Display for Expr {
 struct Parser<'a>(&'a str);
 
 impl<'a> Parser<'a> {
-    fn next_token(&mut self) -> Option<&'a str> {
-        let s = self.0.trim_start();
+    fn peek(&mut self) -> Option<&'a str> {
+        self.0 = &self.0.trim_start();
+        let s = self.0;
         if s.is_empty() {
             return None;
         }
-        if BIN_OP_SYMBOLS.contains(&&s[..1]) {
-            self.0 = &s[1..];
+        if matches!(&s[..1], "+" | "-" | "*" | "/") {
             return Some(&s[..1]);
         }
         let n = s.chars().take_while(char::is_ascii_alphanumeric).count();
         if n > 0 {
-            self.0 = &s[n..];
             return Some(&s[..n]);
         } else {
             panic!("unknown token starting with: {}", s);
         }
+    }
+
+    fn next_token(&mut self) -> Option<&'a str> {
+        let token = self.peek();
+        if let Some(s) = token {
+            self.0 = &self.0[s.len()..];
+        }
+        token
     }
 
     fn parse_primary_expr(&mut self) -> Expr {
@@ -105,23 +121,28 @@ impl<'a> Parser<'a> {
         panic!("unexpected end of input");
     }
 
-    fn parse_binop(&mut self) -> Expr {
-        let lhs = self.parse_primary_expr();
+    fn parse_binop(&mut self, precedence: u32) -> Expr {
+        if precedence > BinOpKind::max_precedence() {
+            return self.parse_primary_expr();
+        }
+        let lhs = self.parse_binop(precedence + 1);
 
-        if let Some(kind) = self.next_token().map(BinOpKind::from_str).flatten() {
-            let rhs = self.parse_binop();
-            return Expr::BinOp {
-                kind,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
-            };
-        } else {
-            return lhs;
+        match self.peek().map(BinOpKind::from_str).flatten() {
+            Some(kind) if precedence == kind.precedence() => {
+                self.next_token();
+                let rhs = self.parse_binop(precedence);
+                return Expr::BinOp {
+                    kind,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                };
+            }
+            _ => return lhs,
         }
     }
 
     fn parse_expr(&mut self) -> Expr {
-        self.parse_binop()
+        self.parse_binop(0)
     }
 }
 
@@ -378,5 +399,47 @@ mod test {
 
         assert!(sheet1.eval_all().is_ok());
         assert_eq!(sheet1, sheet2);
+    }
+
+    #[test]
+    fn parse_with_precedence1() {
+        use Expr::*;
+        use BinOpKind::*;
+        let source = "2 * 3 + 1";
+
+        let actual = Parser(&source).parse_expr();
+
+        let expected = BinOp {
+            kind: Add,
+            lhs: Box::new(BinOp {
+                kind: Mul,
+                lhs: Box::new(Number(2.0)),
+                rhs: Box::new(Number(3.0)),
+            }),
+            rhs: Box::new(Number(1.0)),
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn parse_with_precedence2() {
+        use Expr::*;
+        use BinOpKind::*;
+        let source = "1 - 2 / 3";
+
+        let actual = Parser(&source).parse_expr();
+
+        let expected = BinOp {
+            kind: Sub,
+            lhs: Box::new(Number(1.0)),
+            rhs: Box::new(BinOp {
+                kind: Div,
+                lhs: Box::new(Number(2.0)),
+                rhs: Box::new(Number(3.0)),
+            }),
+        };
+
+        assert_eq!(actual, expected);
     }
 }
