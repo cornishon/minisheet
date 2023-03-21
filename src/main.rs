@@ -3,6 +3,17 @@ use std::{env::args, error::Error, fmt::Display, fs, process::exit};
 #[derive(Debug, Clone, PartialEq)]
 enum BinOpKind {
     Plus,
+    Minus,
+}
+
+impl BinOpKind {
+    fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "+" => Some(Self::Plus),
+            "-" => Some(Self::Minus),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +42,7 @@ impl Display for Expr {
             )?,
             Expr::BinOp { kind, lhs, rhs } => match kind {
                 BinOpKind::Plus => write!(f, "{lhs} + {rhs}")?,
+                BinOpKind::Minus => write!(f, "{lhs} - {rhs}")?,
             },
         }
         Ok(())
@@ -45,7 +57,7 @@ impl<'a> Parser<'a> {
         if s.is_empty() {
             return None;
         }
-        if &s[..1] == "+" {
+        if matches!(&s[..1], "+" | "-") {
             self.0 = &s[1..];
             return Some(&s[..1]);
         }
@@ -85,13 +97,13 @@ impl<'a> Parser<'a> {
         panic!("unexpected end of input");
     }
 
-    fn parse_plus(&mut self) -> Expr {
+    fn parse_binop(&mut self) -> Expr {
         let lhs = self.parse_primary_expr();
 
-        if let Some("+") = self.next_token() {
-            let rhs = self.parse_plus();
+        if let Some(kind) = self.next_token().map(BinOpKind::from_str).flatten() {
+            let rhs = self.parse_binop();
             return Expr::BinOp {
-                kind: BinOpKind::Plus,
+                kind,
                 lhs: Box::new(lhs),
                 rhs: Box::new(rhs),
             };
@@ -101,7 +113,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self) -> Expr {
-        self.parse_plus()
+        self.parse_binop()
     }
 }
 
@@ -222,11 +234,14 @@ impl Sheet {
         match expr {
             Expr::Number(n) => Ok(*n),
             Expr::Address { row, col } => self.eval_cell(*row, *col),
-            Expr::BinOp {
-                kind: BinOpKind::Plus,
-                lhs,
-                rhs,
-            } => Ok(self.eval_expr(lhs)? + self.eval_expr(rhs)?),
+            Expr::BinOp { kind, lhs, rhs } => {
+                let lhs = self.eval_expr(lhs)?;
+                let rhs = self.eval_expr(rhs)?;
+                match kind {
+                    BinOpKind::Plus => Ok(lhs + rhs),
+                    BinOpKind::Minus => Ok(lhs - rhs),
+                }
+            }
         }
     }
 }
