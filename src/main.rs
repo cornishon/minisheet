@@ -331,7 +331,7 @@ mod test {
     }
 
     #[test]
-    fn valid_sheet() {
+    fn valid_sheet_plus() {
         let s1 = "\
             column 1 | column 2
             1        | 2
@@ -344,6 +344,24 @@ mod test {
             1        | 2
             3        | 4
             12       | 3";
+        let sheet2 = Sheet::from_str(s2);
+
+        assert!(sheet1.eval_all().is_ok());
+        assert_eq!(sheet1, sheet2);
+    }
+    fn valid_sheet_minus() {
+        let s1 = "\
+            column 1 | column 2
+            1        | 2
+            3        | 4
+            =B2-10   | =A2 - B2";
+        let mut sheet1 = Sheet::from_str(s1);
+
+        let s2 = "\
+            column 1 | column 2
+            1        | 2
+            3        | 4
+            -8       | -1";
         let sheet2 = Sheet::from_str(s2);
 
         assert!(sheet1.eval_all().is_ok());
