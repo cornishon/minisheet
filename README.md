@@ -7,7 +7,11 @@ For now only vertical bars are allowed as delimiters and only addition is suppor
 ## Quick Start
 
 ```console
-cargo run -- input.csv > output.csv
+cargo run -- input.csv
+```
+or
+```console
+cargo run -- input.csv output.csv
 ```
 
 Example input:

@@ -1,4 +1,11 @@
-use std::{env::args, error::Error, fmt::Display, fs, process::exit};
+use std::{
+    env::args,
+    error::Error,
+    fmt::Display,
+    fs::{self, File},
+    io::Write,
+    process::exit,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 enum BinOpKind {
@@ -305,19 +312,27 @@ impl Display for Sheet {
 }
 
 fn usage(program_name: &str) {
-    eprintln!("usage: {program_name} input.csv > output.csv");
+    eprintln!("usage: {program_name} input.csv [output.csv]");
 }
 fn main() -> Result<(), Box<dyn Error>> {
-    if let Some(file_name) = args().nth(1) {
-        let content = fs::read_to_string(&file_name)?;
-        let mut sheet = Sheet::from_str(&content);
+    let mut args = args();
+    let program_name = args.next().unwrap();
 
-        sheet.eval_all()?;
-
-        println!("{sheet}");
+    let mut sheet = if let Some(input_file) = args.next() {
+        let content = fs::read_to_string(&input_file)?;
+        Sheet::from_str(&content)
     } else {
-        usage(&args().nth(0).unwrap());
+        usage(&program_name);
         exit(1);
+    };
+
+    sheet.eval_all()?;
+
+    if let Some(output_path) = args.next() {
+        let mut f = File::create(output_path)?;
+        write!(&mut f, "{sheet}")?;
+    } else {
+        println!("{sheet}");
     }
 
     // let input = "A1 + 69+B2 ";
