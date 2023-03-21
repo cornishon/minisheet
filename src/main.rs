@@ -2,19 +2,25 @@ use std::{env::args, error::Error, fmt::Display, fs, process::exit};
 
 #[derive(Debug, Clone, PartialEq)]
 enum BinOpKind {
-    Plus,
-    Minus,
+    Add,
+    Sub,
+    Mul,
+    Div,
 }
 
 impl BinOpKind {
     fn from_str(s: &str) -> Option<Self> {
         match s {
-            "+" => Some(Self::Plus),
-            "-" => Some(Self::Minus),
+            "+" => Some(Self::Add),
+            "-" => Some(Self::Sub),
+            "*" => Some(Self::Mul),
+            "/" => Some(Self::Div),
             _ => None,
         }
     }
 }
+
+const BIN_OP_SYMBOLS: &[&str] = &["+", "-", "*", "/"];
 
 #[derive(Debug, Clone, PartialEq)]
 enum Expr {
@@ -41,8 +47,10 @@ impl Display for Expr {
                 row = row + 1
             )?,
             Expr::BinOp { kind, lhs, rhs } => match kind {
-                BinOpKind::Plus => write!(f, "{lhs} + {rhs}")?,
-                BinOpKind::Minus => write!(f, "{lhs} - {rhs}")?,
+                BinOpKind::Add => write!(f, "{lhs} + {rhs}")?,
+                BinOpKind::Sub => write!(f, "{lhs} - {rhs}")?,
+                BinOpKind::Mul => write!(f, "{lhs} * {rhs}")?,
+                BinOpKind::Div => write!(f, "{lhs} / {rhs}")?,
             },
         }
         Ok(())
@@ -57,7 +65,7 @@ impl<'a> Parser<'a> {
         if s.is_empty() {
             return None;
         }
-        if matches!(&s[..1], "+" | "-") {
+        if BIN_OP_SYMBOLS.contains(&&s[..1]) {
             self.0 = &s[1..];
             return Some(&s[..1]);
         }
@@ -238,8 +246,10 @@ impl Sheet {
                 let lhs = self.eval_expr(lhs)?;
                 let rhs = self.eval_expr(rhs)?;
                 match kind {
-                    BinOpKind::Plus => Ok(lhs + rhs),
-                    BinOpKind::Minus => Ok(lhs - rhs),
+                    BinOpKind::Add => Ok(lhs + rhs),
+                    BinOpKind::Sub => Ok(lhs - rhs),
+                    BinOpKind::Mul => Ok(lhs * rhs),
+                    BinOpKind::Div => Ok(lhs / rhs),
                 }
             }
         }
@@ -349,6 +359,8 @@ mod test {
         assert!(sheet1.eval_all().is_ok());
         assert_eq!(sheet1, sheet2);
     }
+
+    #[test]
     fn valid_sheet_minus() {
         let s1 = "\
             column 1 | column 2
