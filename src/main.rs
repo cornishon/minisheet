@@ -86,19 +86,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn next_token(&mut self) -> Option<&'a str> {
-        let token = self.peek();
-        if let Some(s) = token {
-            self.0 = &self.0[s.len()..];
-        }
-        token
-    }
-
     fn parse_primary_expr(&mut self) -> Expr {
-        if let Some(token) = self.next_token() {
+        if let Some(token) = self.next() {
             if token == "(" {
                 let expr = self.parse_expr();
-                match self.next_token() {
+                match self.next() {
                     Some(token) if token != ")" => {
                         panic!("Expectef `)` but got `{token}`");
                     }
@@ -141,7 +133,7 @@ impl<'a> Parser<'a> {
 
         match self.peek().map(BinOpKind::from_str).flatten() {
             Some(kind) if precedence == kind.precedence() => {
-                self.next_token();
+                self.next();
                 let rhs = self.parse_binop(precedence);
                 return Expr::BinOp {
                     kind,
@@ -162,7 +154,11 @@ impl<'a> Iterator for Parser<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_token()
+        let token = self.peek();
+        if let Some(s) = token {
+            self.0 = &self.0[s.len()..];
+        }
+        token
     }
 }
 
